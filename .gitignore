@@ -1,0 +1,10 @@
+.csv
+.jsonl
+postgres/
+genome/
+ml-32m/
+docker-compose/
+db_data/
+dags/streaming_data/
+separated_movies/
+small_db_data/

@@ -5,6 +5,7 @@ import pandas as pd
 import json
 import time
 import logging
+import os
 from streamer import JsonStreamerPandas
 from kafka import KafkaProducer
 
@@ -56,7 +57,7 @@ def get_review_data(streamer):
         if time.time() - curr_time > 5:  # Stream for 5 seconds
             break
         try:
-            new_data = streamer.get_next_row()
+            new_data = streamer.get_next_row()[0]
             producer.send('reviews', json.dumps(new_data).encode('utf-8'))
             time.sleep(interval)  # Control the message rate
         except Exception as e:
@@ -73,7 +74,7 @@ def get_movie_data(streamer):
         if time.time() - curr_time > 5:  # Stream for 5 seconds
             break
         try:
-            new_data = streamer.get_next_row()
+            new_data = streamer.get_next_row()[0]
             producer.send('movies', json.dumps(new_data).encode('utf-8'))
             time.sleep(interval)  # Control the message rate
         except Exception as e:

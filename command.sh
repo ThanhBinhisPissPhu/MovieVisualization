@@ -46,79 +46,35 @@ docker exec -e PGPASSWORD=admin -it recsysbigdata-pgdatabase-1 psql -U admin -d 
 select movies.title, COUNT(ratings.item_id) FROM (ratings JOIN movies ON movies.item_id = ratings.item_id) GROUP BY movies.title;
 select * from ratings join movies on ratings.item_id = movies.item_id;
 
+SELECT * FROM movies 
+WHERE timestamp::TIMESTAMP > now() + interval '1 hour';
+
 SELECT *
 FROM ratings
 WHERE timestamp::timestamp > NOW() - INTERVAL '5 minutes'
 ORDER BY timestamp::timestamp DESC
 LIMIT 10;
 
-DELETE FROM ratings
-WHERE (item_id, user_id) IN (
-    (327, 997206),
-    (377, 997206),
-    (587, 997206),
-    (588, 997206),
-    (596, 997206),
-    (637, 997206),
-    (1022, 997206),
-    (1100, 997206),
-    (1177, 997206),
-    (1223, 997206),
-    (1225, 997206),
-    (1274, 997206),
-    (1288, 997206),
-    (1379, 997206),
-    (1441, 997206),
-    (116, 667138),
-    (377, 667138),
-    (383, 667138),
-    (588, 667138),
-    (637, 667138),
-    (1022, 667138),
-    (1288, 667138),
-    (1441, 667138),
-    (1175, 577039),
-    (1225, 577039));
+movies: 84651
+movies_genres: 141500
+movies_actors: 379321
+movies_directors: 87477
 
-SELECT *
-FROM ratings
-WHERE (item_id, user_id) IN (
-    (327, 997206),
-    (377, 997206),
-    (587, 997206),
-    (588, 997206),
-    (596, 997206),
-    (637, 997206),
-    (1022, 997206),
-    (1100, 997206),
-    (1177, 997206),
-    (1223, 997206),
-    (1225, 997206),
-    (1274, 997206),
-    (1288, 997206),
-    (1379, 997206),
-    (1441, 997206),
-    (116, 667138),
-    (377, 667138),
-    (383, 667138),
-    (588, 667138),
-    (637, 667138),
-    (1022, 667138),
-    (1288, 667138),
-    (1441, 667138),
-    (1175, 577039),
-    (1225, 577039));
 
 ## spark submit
 docker exec -it recsysbigdata-spark-master-1 bash
-spark-submit --master spark://localhost:7077 spark_stream.py
-spark-submit --master spark://localhost:7077 \
+
+spark-submit --master spark://spark-master:7077 spark_stream.py
+
+spark-submit --master spark://spark-master:7077 \
 --packages org.apache.spark:spark-sql-kafka-0-10_2.12:3.5.3 \
-spark_stream.py
+spark_stream/spark_stream.py
 
 ## kafka
 docker exec -it broker bash
 kafka-topics --bootstrap-server localhost:9092 --list
+kafka-topics --bootstrap-server broker:29092 --list
+
 kafka-topics --bootstrap-server localhost:9092 --topic movies --describe
 kafka-console-consumer --bootstrap-server localhost:9092 --topic movies --from-beginning --timeout-ms 5000 --max-messages 5
 kafka-console-consumer --bootstrap-server localhost:9092 --topic ratings --from-beginning --timeout-ms 5000 --max-messages 5

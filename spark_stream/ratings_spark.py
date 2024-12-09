@@ -66,14 +66,14 @@ def insert_ratings(connection, data):
     try:
         cursor = connection.cursor()
         query = """
-            INSERT INTO ratings (item_id, user_id, rating)
+            INSERT INTO ratings (item_id, user_id, rating, timestamp)
             VALUES %s
         """
         # Convert data into a list of tuples
-        values = [(row['item_id'], row['user_id'], row['rating']) for row in data]
+        values = [(row['item_id'], row['user_id'], row['rating'], row['timestamp']) for row in data]
         execute_values(cursor, query, values)
         connection.commit()
-        logging.info(f"{len(values)} rows inserted successfully!")
+        logging.info(f"{len(values)} rating rows inserted successfully!")
     except Exception as e:
         logging.error(f"Could not insert ratings due to {e}")
     finally:

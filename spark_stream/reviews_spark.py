@@ -53,7 +53,61 @@ def create_selection_df_reviews(spark_df):
         .select(from_json(col('value'), schema).alias('data')).select("data.*")
     logging.info("Transformed Kafka DataFrame reviews schema: ")
     sel.printSchema()
+
+    def simple_sentiment_analysis(text):
+        positive_words = {"good", "great", "excellent", "amazing", "positive", "happy"}
+        negative_words = {"bad", "terrible", "horrible", "negative", "sad", "angry"}
+        
+        words = set(text.lower().split())
+        has_positive = bool(words & positive_words)
+        has_negative = bool(words & negative_words)
+        
+        if has_positive and has_negative:
+            return "neutral"
+        elif has_positive:
+            return "positive"
+        elif has_negative:
+            return "negative"
+        return "neutral"
+    
+
+    # Register UDF
+    sentiment_udf = udf(simple_sentiment_analysis, StringType())
+    sel = sel.withColumn("sentiment", sentiment_udf(col("txt")))
     return sel
+
+
+def increase_reviews_count(connection, data):
+    """
+    Update the number of reviews for each sentiment type in the PostgreSQL movies table.
+    :param connection: PostgreSQL connection object
+    :param data: List of rows containing movie reviews
+    """
+    try:
+        cursor = connection.cursor()
+        
+        # Create separate queries for each sentiment
+        update_query = """
+            UPDATE movies
+            SET 
+                positive_reviews = positive_reviews + CASE WHEN %s = 'positive' THEN 1 ELSE 0 END,
+                negative_reviews = negative_reviews + CASE WHEN %s = 'negative' THEN 1 ELSE 0 END,
+                neutral_reviews = neutral_reviews + CASE WHEN %s = 'neutral' THEN 1 ELSE 0 END
+            WHERE item_id = %s
+        """
+        
+        # Prepare data
+        values = [(row['sentiment'], row['sentiment'], row['sentiment'], row['item_id']) for row in data]
+        
+        # Execute the query for each row
+        cursor.executemany(update_query, values)
+        connection.commit()
+        logging.info(f"Updated review counts for {len(values)} rows successfully!")
+    except Exception as e:
+        logging.error(f"Could not update review counts due to {e}")
+    finally:
+        cursor.close()
+
 
 
 def insert_reviews(connection, data):
@@ -65,14 +119,14 @@ def insert_reviews(connection, data):
     try:
         cursor = connection.cursor()
         query = """
-            INSERT INTO reviews (item_id, txt)
+            INSERT INTO reviews (item_id, txt, sentiment, timestamp)
             VALUES %s
         """
         # Convert data into a list of tuples
-        values = [(row['item_id'], row['txt']) for row in data]
+        values = [(row['item_id'], row['txt'], row['sentiment'], row['timestamp']) for row in data]
         execute_values(cursor, query, values)
         connection.commit()
-        logging.info(f"{len(values)} rows inserted successfully!")
+        logging.info(f"{len(values)} reviews rows inserted successfully!")
     except Exception as e:
         logging.error(f"Could not insert reviews due to {e}")
     finally:

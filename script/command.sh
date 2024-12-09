@@ -49,10 +49,16 @@ select * from ratings join movies on ratings.item_id = movies.item_id;
 SELECT * FROM movies 
 WHERE timestamp::TIMESTAMP > now() + interval '1 hour';
 
+select * from movies where item_id = 4255;
+
 SELECT *
 FROM ratings
 WHERE timestamp::timestamp > NOW() - INTERVAL '5 minutes'
-ORDER BY timestamp::timestamp DESC
+LIMIT 10;
+
+SELECT *
+FROM reviews
+WHERE timestamp::timestamp > NOW() - INTERVAL '5 minutes'
 LIMIT 10;
 
 movies: 84651

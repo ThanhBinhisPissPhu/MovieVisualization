@@ -13,16 +13,14 @@ logging.basicConfig(
 # from cassandra.cluster import Cluster
 from pyspark.sql import SparkSession
 from pyspark.sql.functions import from_json, col, udf, explode, split, trim,\
-                                current_timestamp, date_format, from_utc_timestamp
+                                current_timestamp, date_format, from_utc_timestamp, lit
 from pyspark.sql.types import StructType, StructField, StringType, IntegerType
-from pyspark.sql import functions as F
-import pyspark.sql.functions as psf
 
 
 import psycopg2
 from psycopg2.extras import execute_values
 
-from ratings_spark import read_ratings_from_kafka, create_selection_df_ratings, insert_ratings
+from ratings_spark import read_ratings_from_kafka, create_selection_df_ratings, insert_ratings, update_avg_rating
 from movies_spark import read_movies_from_kafka, create_selection_df_movies,\
                             separate_movies_year_df, separate_movies_genres_df,\
                             separate_movies_actors_df, separate_movies_directors_df,\
@@ -103,6 +101,7 @@ def process_ratings(batch_df, postgres_conn):
     # batch_df.show(truncate=False)
     data = [row.asDict() for row in batch_df.collect()]
     insert_ratings(postgres_conn, data)
+    update_avg_rating(postgres_conn, data)
 
 def process_movies(batch_df, postgres_conn):
     movies, movies_genres = separate_movies_genres_df(batch_df, postgres_conn)
@@ -153,7 +152,9 @@ if __name__ == "__main__":
                             from_utc_timestamp(current_timestamp(), "GMT+7"),
                             "yyyy-MM-dd HH:mm:ss"
                         )
-                    )
+                    )\
+                    .withColumn("avgRating", lit(0))
+                
                 logging.info("Starting movies stream...")
                 movies_query = selection_movies_df_with_timestamp.writeStream \
                     .foreachBatch(lambda batch_df, epoch_id: process_movies(batch_df, postgres_conn)) \

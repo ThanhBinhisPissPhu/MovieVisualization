@@ -57,6 +57,54 @@ def create_selection_df_ratings(spark_df):
     return sel
 
 
+def update_avg_rating(connection, data):
+    """
+    Update average rating of a movie in PostgreSQL database for specific item_ids.
+    :param connection: PostgreSQL connection object
+    :param data: DataFrame containing a list of item_ids to update
+    """
+    try:
+        cursor = connection.cursor()
+
+        # Extract unique item_ids from the data variable
+        item_ids = data.select("item_id").distinct().rdd.flatMap(lambda x: x).collect()
+
+        if not item_ids:
+            logging.info("No item_ids provided for updating.")
+            return
+
+        # Convert item_ids to a comma-separated string for SQL IN clause
+        item_ids_str = ",".join(map(str, item_ids))
+
+        # Fetch average ratings for the specific item_ids from the ratings table
+        fetch_query = f"""
+            SELECT item_id, AVG(rating) AS avg_rating
+            FROM ratings
+            WHERE item_id IN ({item_ids_str})
+            GROUP BY item_id
+        """
+        cursor.execute(fetch_query)
+        avg_ratings = cursor.fetchall()  # Fetch all results
+
+        # Prepare data for updating the movies table
+        update_query = """
+            UPDATE movies
+            SET avg_rating = %s
+            WHERE item_id = %s
+        """
+        values = [(row[1], row[0]) for row in avg_ratings]  # (avg_rating, item_id)
+
+        # Batch update the movies table
+        cursor.executemany(update_query, values)
+        connection.commit()
+
+        logging.info(f"{len(values)} average ratings updated successfully for the provided item_ids!")
+    except Exception as e:
+        logging.error(f"Could not update average ratings due to: {e}")
+    finally:
+        cursor.close()
+
+
 def insert_ratings(connection, data):
     """
     Insert data into PostgreSQL database

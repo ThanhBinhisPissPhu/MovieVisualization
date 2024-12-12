@@ -15,9 +15,19 @@ class JsonStreamerPandas:
     def get_next_row(self):
         # Check if there are rows left to return
         if self.current_index < len(self.data):
-            row = self.data.iloc[self.current_index].to_dict(),  # Get the current row
+            row = self.data.iloc[self.current_index].to_dict()  # Get the current row
             self.current_index += 1  # Move to the next row
             return row
+        else:
+            # Return None if no more rows are available
+            return None
+    
+    def get_next_ten_rows(self):
+        # Check if there are rows left to return
+        if self.current_index < len(self.data):
+            rows = self.data.iloc[self.current_index:self.current_index+10].to_dict()
+            self.current_index += 10
+            return rows
         else:
             # Return None if no more rows are available
             return None

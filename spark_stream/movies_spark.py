@@ -13,7 +13,7 @@ logging.basicConfig(
 # from cassandra.cluster import Cluster
 from pyspark.sql import SparkSession, Window
 from pyspark.sql.functions import from_json, col, udf, explode, split, trim, current_timestamp, date_format, from_utc_timestamp
-from pyspark.sql.types import StructType, StructField, StringType, IntegerType
+from pyspark.sql.types import StructType, StructField, StringType, IntegerType, ArrayType
 from pyspark.sql import Window, functions as F
 import pyspark.sql.functions as psf
 
@@ -31,6 +31,7 @@ def read_movies_from_kafka(spark_conn):
             .option('subscribe', 'movies') \
             .option('startingOffsets', 'earliest') \
             .load()
+                        
         logging.info("kafka dataframe movies created successfully")
     except Exception as e:
         logging.warning(f"kafka dataframe movies could not be created because: {e}")
@@ -188,7 +189,7 @@ def create_selection_df_movies(spark_df):
     :param spark_df: Streaming DataFrame from Kafka
     :return: Transformed DataFrame
     """
-    schema = StructType([
+    schema = ArrayType(StructType([
         StructField("item_id", StringType(), False),
         StructField("title", StringType(), False),
         StructField("genres", StringType(), False),
@@ -197,13 +198,15 @@ def create_selection_df_movies(spark_df):
         StructField("imdbId", StringType(), False),
         StructField("positive_reviews", StringType(), False),
         StructField("negative_reviews", StringType(), False),
-        StructField("neutral_reviews", StringType(), False),
-    ])
+        StructField("neutral_reviews", StringType(), False)
+    ]))
 
     sel = spark_df.selectExpr("CAST(value AS STRING)") \
-        .select(from_json(col('value'), schema).alias('data')).select("data.*")
-    logging.info("Transformed Kafka DataFrame movies schema: ")
+                .select(from_json(col('value'), schema).alias('data')) \
+                .selectExpr("explode(data) as movie") \
+                .select("movie.*")
     sel.printSchema()
+
 
     # def foreach_batch_function(batch_df, epoch_id):
     #     # Convert batch to a list of dictionaries

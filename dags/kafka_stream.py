@@ -1,6 +1,8 @@
 from datetime import datetime
 from airflow import DAG
-from airflow.operators.python import PythonOperator
+from airflow import DAG
+from airflow.operators.python import PythonOperator, BranchPythonOperator
+from airflow.models import Variable
 import pandas as pd
 import json
 import time
@@ -24,20 +26,20 @@ movie_streamer = JsonStreamerPandas(movie_path)
 
 def get_rating_data(streamer):
     producer = KafkaProducer(bootstrap_servers=['broker:29092'], max_block_ms=5000)
-    rate_per_second = 5  # Messages per second
+    rate_per_second = 2  # Messages per second
     interval = 1 / rate_per_second  # Interval in seconds between messages
 
     curr_time = time.time()
     while True:
-        if time.time() - curr_time > 5:  # Stream for 5 seconds
+        if time.time() - curr_time > 30:
             break
         try:
             new_data = streamer.get_next_row()
             # print(new_data)
             processed_data = {
-                "item_id": int(new_data[0]['item_id']),
-                "user_id": int(new_data[0]['user_id']), 
-                "rating": int(new_data[0]['rating'])
+                "item_id": int(new_data['item_id']),
+                "user_id": int(new_data['user_id']), 
+                "rating": int(new_data['rating'])
             }
             producer.send('ratings', json.dumps(processed_data).encode('utf-8'))
             # logging.info(f"Data sent")
@@ -49,37 +51,45 @@ def get_rating_data(streamer):
 
 def get_review_data(streamer):
     producer = KafkaProducer(bootstrap_servers=['broker:29092'], max_block_ms=5000)
-    rate_per_second = 5  # Messages per second
+    rate_per_second = 0.4  # Messages per second
     interval = 1 / rate_per_second  # Interval in seconds between messages
 
     curr_time = time.time()
     while True:
-        if time.time() - curr_time > 5:  # Stream for 5 seconds
+        if time.time() - curr_time > 20:  # Stream for 5 seconds
             break
         try:
-            new_data = streamer.get_next_row()[0]
+            new_data = streamer.get_next_row()
             producer.send('reviews', json.dumps(new_data).encode('utf-8'))
             time.sleep(interval)  # Control the message rate
         except Exception as e:
             logging.error(f"An error occurred: {e}")
             continue
 
+
 def get_movie_data(streamer):
     producer = KafkaProducer(bootstrap_servers=['broker:29092'], max_block_ms=5000)
-    rate_per_second = 5  # Messages per second
+    rate_per_second = 0.5  # Messages per second
     interval = 1 / rate_per_second  # Interval in seconds between messages
 
     curr_time = time.time()
     while True:
-        if time.time() - curr_time > 5:  # Stream for 5 seconds
+        if time.time() - curr_time > 6:  # Stream for 5 seconds
             break
         try:
-            new_data = streamer.get_next_row()[0]
-            producer.send('movies', json.dumps(new_data).encode('utf-8'))
+            new_data = streamer.get_next_ten_rows()
+            movies = []
+            for i in range(len(new_data['item_id'])):
+                movie = {key: new_data[key][i] for key in new_data}
+                movies.append(movie)
+            producer.send('movies', json.dumps(movies).encode('utf-8'))
             time.sleep(interval)  # Control the message rate
         except Exception as e:
             logging.error(f"An error occurred: {e}")
             continue 
+
+def delay():
+    time.sleep(5)
 
 with DAG('user_automation',
          default_args=default_args,
@@ -107,12 +117,11 @@ with DAG('user_automation',
         op_args=[review_streamer],
     )
 
+    delay_task = PythonOperator(
+        task_id='delay_after_movies',
+        python_callable=delay,
+    )
+
     # Define dependencies
-    movie_task >> [rating_task, review_task]
-
-    
-# get_rating_data(rating_streamer)
-# get_review_data(review_streamer)
-# get_movie_data(movie_streamer)
-
+    movie_task >> delay_task >> [rating_task, review_task]
 

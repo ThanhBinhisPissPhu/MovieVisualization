@@ -38,7 +38,7 @@ def create_postgres_connection():
             dbname="movielens",
             user="admin",
             password="admin",
-            host="pgdatabase",
+            host="localhost",
             port="5432"
         )
         logging.info("PostgreSQL connection established successfully!")

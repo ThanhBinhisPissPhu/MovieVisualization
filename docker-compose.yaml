@@ -15,10 +15,13 @@ services:
         interval: 10s
         timeout: 5s
         retries: 5
+      restart: unless-stopped
       networks:
         - confluent
 
   broker:
+    mem_limit: 6g
+    cpu_quota: -1
     image: confluentinc/cp-server:7.4.0
     hostname: broker
     container_name: broker
@@ -42,18 +45,23 @@ services:
       KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
       KAFKA_JMX_PORT: 9101
       KAFKA_JMX_HOSTNAME: localhost
-      KAFKA_CONFLUENT_SCHEMA_REGISTRY_URL: http://schema-registry:8081
+      # KAFKA_CONFLUENT_SCHEMA_REGISTRY_URL: http://schema-registry:8081
       CONFLUENT_METRICS_REPORTER_BOOTSTRAP_SERVERS: broker:29092
       CONFLUENT_METRICS_REPORTER_TOPIC_REPLICAS: 1
       CONFLUENT_METRICS_ENABLE: 'false'
       CONFLUENT_SUPPORT_CUSTOMER_ID: 'anonymous'
+      KAFKA_HEAP_OPTS: "-Xms4g -Xmx6g"
+      KAFKA_ZOOKEEPER_SESSION_TIMEOUT_MS: 40000
+      KAFKA_ZOOKEEPER_CONNECTION_TIMEOUT_MS: 40000
     networks:
       - confluent
+    restart: unless-stopped
     healthcheck:
       test: [ "CMD", "bash", "-c", 'nc -z localhost 9092' ]
       interval: 10s
       timeout: 5s
       retries: 5
+
 
   # schema-registry:
   #   image: confluentinc/cp-schema-registry:7.4.0

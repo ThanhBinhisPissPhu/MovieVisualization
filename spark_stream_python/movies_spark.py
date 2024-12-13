@@ -27,7 +27,7 @@ def read_movies_from_kafka(spark_conn):
     try:
         spark_df = spark_conn.readStream \
             .format('kafka') \
-            .option('kafka.bootstrap.servers', 'broker:29092') \
+            .option('kafka.bootstrap.servers', 'localhost:9092') \
             .option('subscribe', 'movies') \
             .option('startingOffsets', 'earliest') \
             .load()

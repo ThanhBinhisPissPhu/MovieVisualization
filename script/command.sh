@@ -34,6 +34,8 @@ spark-submit --master spark://spark-master:7077 \
 --packages org.apache.spark:spark-sql-kafka-0-10_2.12:3.5.3 \
 spark_stream/spark_stream_unify.py
 
+python spark_stream_python/spark_stream_unify_python.py
+
 ## kafka
 docker exec -it broker bash
 kafka-topics --bootstrap-server localhost:9092 --list
